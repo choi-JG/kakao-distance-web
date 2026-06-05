@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>경비청구 거리계산기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --kakao:#FEE500; --kakao-d:#E6CE00; --dark:#1A1A1A; --mid:#3D3D3D;
+    --muted:#888; --line:#E8E8E8; --bg:#F7F7F5; --white:#FFFFFF;
+    --success:#2D9E6B; --error:#D94F4F; --radius:12px;
+  }
+  body { font-family:'Noto Sans KR',sans-serif; background:var(--bg); color:var(--dark); min-height:100vh; padding:0 0 80px; }
+  header { background:var(--dark); padding:20px 40px; display:flex; align-items:center; gap:16px; position:sticky; top:0; z-index:100; }
+  .logo-mark { width:36px; height:36px; background:var(--kakao); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:var(--dark); }
+  .logo-text { font-size:16px; font-weight:500; color:#fff; }
+  .logo-sub  { font-size:12px; color:var(--muted); margin-left:auto; font-family:'JetBrains Mono'; }
+  main { max-width:760px; margin:0 auto; padding:48px 24px 0; }
+  .hero { margin-bottom:40px; }
+  .hero h1 { font-size:28px; font-weight:700; line-height:1.3; margin-bottom:10px; }
+  .hero h1 span { color:var(--kakao); background:var(--dark); padding:0 6px; border-radius:4px; }
+  .hero p { font-size:14px; color:var(--muted); line-height:1.7; }
+  .card { background:var(--white); border:1px solid var(--line); border-radius:var(--radius); padding:28px; margin-bottom:20px; }
+  .card-title { font-size:13px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:20px; display:flex; align-items:center; gap:8px; }
+  .card-title::before { content:''; display:block; width:3px; height:14px; background:var(--kakao); border-radius:2px; }
+  .upload-zone { border:1.5px dashed var(--line); border-radius:10px; padding:40px 20px; text-align:center; cursor:pointer; transition:all 0.2s; background:var(--bg); }
+  .upload-zone:hover, .upload-zone.drag { border-color:var(--kakao); background:#FFFDE7; }
+  .upload-zone input[type=file] { display:none; }
+  .upload-icon { font-size:36px; margin-bottom:12px; }
+  .upload-zone p { font-size:14px; color:var(--muted); }
+  .upload-zone strong { font-size:15px; color:var(--dark); display:block; margin-bottom:4px; }
+  .file-name { margin-top:12px; font-size:13px; font-family:'JetBrains Mono'; color:var(--success); font-weight:600; display:none; }
+  .preview-wrap { overflow-x:auto; margin-top:16px; display:none; }
+  .preview-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .preview-table th { background:var(--dark); color:var(--kakao); padding:8px 12px; text-align:left; font-weight:500; font-family:'JetBrains Mono'; font-size:11px; }
+  .preview-table td { padding:7px 12px; border-bottom:1px solid var(--line); color:var(--mid); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .preview-table tr:last-child td { border-bottom:none; }
+  .preview-count { font-size:12px; color:var(--muted); margin-top:8px; text-align:right; }
+  .time-estimate { background:#F0F7FF; border:1px solid #BAD7F5; border-radius:8px; padding:12px 16px; font-size:13px; color:#1A5276; margin-bottom:14px; display:none; }
+  .run-btn { width:100%; padding:16px; background:var(--kakao); color:var(--dark); border:none; border-radius:10px; font-size:16px; font-weight:700; cursor:pointer; transition:all 0.15s; font-family:'Noto Sans KR'; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .run-btn:hover:not(:disabled) { background:var(--kakao-d); transform:translateY(-1px); }
+  .run-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+  .progress-wrap { display:none; margin-top:20px; }
+  .progress-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .progress-label { font-size:13px; color:var(--mid); font-weight:500; }
+  .progress-pct { font-size:13px; font-family:'JetBrains Mono'; font-weight:600; color:var(--dark); }
+  .progress-bar-bg { height:8px; background:var(--line); border-radius:99px; overflow:hidden; margin-bottom:16px; }
+  .progress-bar-fill { height:100%; background:var(--kakao); border-radius:99px; width:0%; transition:width 0.3s ease; }
+  .progress-log { background:var(--dark); border-radius:8px; padding:16px; max-height:220px; overflow-y:auto; font-family:'JetBrains Mono'; font-size:12px; color:#CCC; line-height:1.8; }
+  .log-success { color:#7EDBB0; } .log-error { color:#F08080; } .log-title { color:var(--kakao); font-weight:600; } .log-info { color:#89CFF0; }
+  .result-wrap { display:none; }
+  .result-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+  .stat-card { background:var(--bg); border-radius:10px; padding:16px; text-align:center; }
+  .stat-num { font-size:28px; font-weight:700; font-family:'JetBrains Mono'; }
+  .stat-num.green { color:var(--success); } .stat-num.red { color:var(--error); }
+  .stat-label { font-size:12px; color:var(--muted); margin-top:4px; }
+  .dl-btn { width:100%; padding:14px; background:var(--dark); color:var(--kakao); border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; transition:all 0.15s; font-family:'Noto Sans KR'; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .dl-btn:hover { background:var(--mid); }
+  .guide { background:#FFFDE7; border:1px solid #FDD835; border-radius:8px; padding:14px 16px; font-size:13px; color:#7D6608; line-height:1.7; }
+  .guide strong { font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-mark">K</div>
+  <span class="logo-text">경비청구 거리계산기</span>
+  <span class="logo-sub">powered by Kakao Maps API</span>
+</header>
+<main>
+  <div class="hero">
+    <h1>출발지·도착지 입력하면<br><span>거리와 택시비</span> 자동 계산</h1>
+    <p>Excel 파일을 업로드하면 카카오맵 기준으로 거리(km)와 택시비 최대/최소를 자동으로 계산합니다.<br>최대 300건까지 처리 가능합니다.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">STEP 1 &nbsp;Excel 파일 업로드</div>
+    <div class="guide" style="margin-bottom:16px;">
+      <strong>필수 컬럼:</strong> 출발지, 도착지 &nbsp;|&nbsp;
+      <strong>추가 컬럼</strong>(방문목적, 담당자 등)은 결과 파일에 그대로 유지됩니다. &nbsp;|&nbsp;
+      <strong>최대 300건</strong>
+    </div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      <div class="upload-icon">📂</div>
+      <strong>클릭하여 파일 선택</strong>
+      <p>또는 파일을 여기로 드래그하세요 (.xlsx / .csv)</p>
+      <div class="file-name" id="fileName"></div>
+    </div>
+    <div class="preview-wrap" id="previewWrap">
+      <table class="preview-table" id="previewTable"></table>
+      <div class="preview-count" id="previewCount"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">STEP 2 &nbsp;계산 실행</div>
+    <div class="time-estimate" id="timeEstimate"></div>
+    <button class="run-btn" id="runBtn" onclick="runCalculation()" disabled>
+      <span>🗺️</span> 거리 및 택시비 계산 시작
+    </button>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-header">
+        <span class="progress-label" id="progressLabel">처리 중...</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+      <div class="progress-log" id="progressLog"></div>
+    </div>
+  </div>
+
+  <div class="card result-wrap" id="resultWrap">
+    <div class="card-title">결과</div>
+    <div class="result-summary">
+      <div class="stat-card"><div class="stat-num" id="statTotal">-</div><div class="stat-label">전체 건수</div></div>
+      <div class="stat-card"><div class="stat-num green" id="statSuccess">-</div><div class="stat-label">성공</div></div>
+      <div class="stat-card"><div class="stat-num red" id="statFail">-</div><div class="stat-label">실패</div></div>
+    </div>
+    <button class="dl-btn" id="dlBtn">⬇️ 결과 파일 다운로드 (.csv)</button>
+  </div>
+</main>
+
+<script>
+  const CHUNK_SIZE = 10;
+  const MAX_ROWS   = 300;
+  let parsedRows   = [];
+  let allResults   = [];
+
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput  = document.getElementById('fileInput');
+
+  uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+  uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+  function handleFile(file) {
+    const fileNameEl = document.getElementById('fileName');
+    fileNameEl.style.display = 'block';
+    fileNameEl.textContent   = '⏳ ' + file.name + ' 읽는 중...';
+    document.getElementById('runBtn').disabled = true;
+
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    const onData = (rawData) => {
+      // 컬럼명 trim
+      const data = rawData.map(row => {
+        const r = {};
+        Object.keys(row).forEach(k => { r[k.trim()] = (typeof row[k] === 'string') ? row[k].trim() : row[k]; });
+        return r;
+      }).filter(row => row['출발지'] || row['도착지']); // 빈 행 제거
+
+      if (!data.length || !data[0].hasOwnProperty('출발지') || !data[0].hasOwnProperty('도착지')) {
+        fileNameEl.textContent = '❌ 컬럼 오류';
+        const cols = data.length ? Object.keys(data[0]).join(', ') : '(비어있음)';
+        alert('⚠️ 출발지, 도착지 컬럼이 필요합니다.\n\n인식된 컬럼: ' + cols);
+        return;
+      }
+      if (data.length > MAX_ROWS) {
+        fileNameEl.textContent = '❌ 건수 초과';
+        alert('⚠️ 최대 ' + MAX_ROWS + '건까지 처리 가능합니다. (현재 ' + data.length + '건)');
+        return;
+      }
+      parsedRows = data;
+      fileNameEl.textContent = '✅ ' + file.name + ' (' + data.length + '건)';
+      renderPreview(data);
+      showTimeEstimate(data.length);
+      document.getElementById('runBtn').disabled = false;
+    };
+
+    if (ext === 'csv') {
+      Papa.parse(file, {
+        header: true, skipEmptyLines: true,
+        complete: r => onData(r.data),
+        error:    e => { fileNameEl.textContent = '❌ 읽기 실패'; alert('CSV 오류: ' + e.message); }
+      });
+    } else {
+      // xlsx/xls → base64로 변환 후 서버에서 파싱
+      const reader2 = new FileReader();
+      reader2.onload = (e) => {
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+        fetch('/api/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileData: base64 })
+        })
+          .then(res => res.json())
+          .then(json => {
+            if (json.error) { fileNameEl.textContent = '❌ 읽기 실패'; alert('파일 오류: ' + json.error); }
+            else onData(json.rows);
+          })
+          .catch(err => { fileNameEl.textContent = '❌ 읽기 실패'; alert('네트워크 오류: ' + err.message); });
+      };
+      reader2.readAsArrayBuffer(file);
+    }
+  }
+
+  function renderPreview(data) {
+    const cols  = Object.keys(data[0]);
+    const table = document.getElementById('previewTable');
+    let html = '<thead><tr>' + cols.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+    data.slice(0,5).forEach(row => {
+      html += '<tr>' + cols.map(c => '<td title="' + (row[c]||'') + '">' + (row[c]||'') + '</td>').join('') + '</tr>';
+    });
+    html += '</tbody>';
+    table.innerHTML = html;
+    document.getElementById('previewCount').textContent = '총 ' + data.length + '건 (미리보기 최대 5행)';
+    document.getElementById('previewWrap').style.display = 'block';
+  }
+
+  function showTimeEstimate(count) {
+    const sec    = Math.ceil(count * 1.5);
+    const min    = Math.floor(sec / 60);
+    const remSec = sec % 60;
+    const timeStr = min > 0 ? '약 ' + min + '분 ' + remSec + '초' : '약 ' + remSec + '초';
+    const chunks  = Math.ceil(count / CHUNK_SIZE);
+    const el = document.getElementById('timeEstimate');
+    el.innerHTML = '⏱️ 예상 소요시간: <strong>' + timeStr + '</strong> &nbsp;|&nbsp; 총 ' + count + '건 / ' + chunks + '개 묶음으로 처리';
+    el.style.display = 'block';
+  }
+
+  async function runCalculation() {
+    if (!parsedRows.length) return;
+    const btn        = document.getElementById('runBtn');
+    const progWrap   = document.getElementById('progressWrap');
+    const progFill   = document.getElementById('progressFill');
+    const progLog    = document.getElementById('progressLog');
+    const progLabel  = document.getElementById('progressLabel');
+    const progPct    = document.getElementById('progressPct');
+    const resultWrap = document.getElementById('resultWrap');
+
+    btn.disabled = true;
+    progWrap.style.display = 'block';
+    resultWrap.style.display = 'none';
+    progLog.innerHTML = '';
+    allResults = [];
+
+    const total  = parsedRows.length;
+    const chunks = [];
+    for (let i = 0; i < total; i += CHUNK_SIZE) chunks.push(parsedRows.slice(i, i + CHUNK_SIZE));
+
+    addLog('총 ' + total + '건 / ' + chunks.length + '개 묶음으로 처리 시작', 'title');
+
+    let processed = 0;
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const chunk = chunks[ci];
+      addLog('[묶음 ' + (ci+1) + '/' + chunks.length + '] ' + chunk.length + '건 처리 중...', 'info');
+      progLabel.textContent = '묶음 ' + (ci+1) + ' / ' + chunks.length + ' 처리 중';
+
+      try {
+        const res = await fetch('/api/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: chunk }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: '서버 오류' }));
+          addLog('묶음 ' + (ci+1) + ' 오류: ' + (err.error || '알 수 없는 오류'), 'error');
+          chunk.forEach(row => allResults.push({ 출발지: row['출발지'], 도착지: row['도착지'], '거리(km)': null, '택시비_최대(원)': null, '택시비_최소(원)': null, 상태: '서버 오류' }));
+        } else {
+          const json = await res.json();
+          json.results.forEach(r => {
+            allResults.push(r);
+            const ok = r['상태'] === '성공';
+            addLog('  ' + r['출발지'] + ' → ' + r['도착지'] + ' | ' + (ok ? r['거리(km)'] + 'km / 택시비 ' + Number(r['택시비_최소(원)']).toLocaleString() + '~' + Number(r['택시비_최대(원)']).toLocaleString() + '원' : r['상태']), ok ? 'success' : 'error');
+          });
+        }
+      } catch (err) {
+        addLog('묶음 ' + (ci+1) + ' 네트워크 오류: ' + err.message, 'error');
+      }
+
+      processed += chunk.length;
+      const pct = Math.round((processed / total) * 100);
+      progFill.style.width = pct + '%';
+      progPct.textContent  = pct + '%';
+    }
+
+    progLabel.textContent = '처리 완료!';
+    addLog('모든 처리 완료 (' + total + '건)', 'title');
+
+    const success = allResults.filter(r => r['상태'] === '성공').length;
+    document.getElementById('statTotal').textContent   = total;
+    document.getElementById('statSuccess').textContent = success;
+    document.getElementById('statFail').textContent    = total - success;
+
+    resultWrap.style.display = 'block';
+    resultWrap.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('dlBtn').onclick = downloadResult;
+    btn.disabled = false;
+  }
+
+  function addLog(text, type='') {
+    const log  = document.getElementById('progressLog');
+    const line = document.createElement('div');
+    if (type) line.className = 'log-' + type;
+    line.textContent = text;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function downloadResult() {
+    if (!allResults.length) return;
+    const cols = Object.keys(allResults[0]);
+    const csv  = [cols.join(','), ...allResults.map(r => cols.map(c => '"' + String(r[c] ?? '').replace(/"/g, '""') + '"').join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const date = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    a.href = url; a.download = 'result_거리계산_' + date + '.csv';
+    a.click(); URL.revokeObjectURL(url);
+  }
+</script>
+</body>
+</html>
