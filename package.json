@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "xlsx": "^0.18.5",
-    "formidable": "^3.5.1"
-  }
-}
